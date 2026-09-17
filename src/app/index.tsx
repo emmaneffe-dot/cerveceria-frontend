@@ -66,6 +66,15 @@ export default function EscaneoMesaScreen() {
     [escaneando, iniciarSesion],
   );
 
+  // Atajo de prueba (TEMPORAL): mientras no haya backend real, esto permite
+  // revisar el catálogo y la pantalla de pago sin depender de la conexión.
+  // Sacar esta función y el botón antes de entregar la app.
+  const irADemostracion = useCallback(async () => {
+    await AsyncStorage.setItem('cliente_uuid', 'demo-uuid-de-prueba');
+    await AsyncStorage.setItem('numero_mesa', '12');
+    router.replace('/catalogo');
+  }, []);
+
   if (!permission) {
     return <View style={styles.centrado} />;
   }
@@ -79,6 +88,9 @@ export default function EscaneoMesaScreen() {
         </Text>
         <Pressable style={styles.boton} onPress={requestPermission}>
           <Text style={styles.botonTexto}>Dar permiso a la cámara</Text>
+        </Pressable>
+        <Pressable onPress={irADemostracion}>
+          <Text style={styles.linkPrueba}>🧪 Modo prueba: ir directo al menú</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -99,6 +111,10 @@ export default function EscaneoMesaScreen() {
           {cargando ? 'Conectando...' : 'Apuntá al QR de tu mesa'}
         </Text>
         {cargando && <ActivityIndicator size="large" color="#fff" style={{ marginTop: 12 }} />}
+
+        <Pressable onPress={irADemostracion} style={styles.botonPrueba}>
+          <Text style={styles.linkPrueba}>🧪 Modo prueba: ir directo al menú</Text>
+        </Pressable>
       </SafeAreaView>
     </View>
   );
@@ -121,5 +137,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
+  },
+  botonPrueba: {
+    marginTop: 40,
+    padding: 10,
+  },
+  linkPrueba: {
+    color: '#fff',
+    fontSize: 13,
+    textDecorationLine: 'underline',
+    opacity: 0.8,
   },
 });
