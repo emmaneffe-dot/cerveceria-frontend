@@ -75,6 +75,14 @@ export default function EscaneoMesaScreen() {
     router.replace('/catalogo');
   }, []);
 
+  // Acceso del personal de barra (permanente): lleva a la pantalla de
+  // empleado, protegida con PIN. En una versión final capaz conviene
+  // esconderlo más (ej. mantener presionado el logo), pero por ahora
+  // alcanza con este link chico y discreto.
+  const irAEmpleado = useCallback(() => {
+    router.push('/empleado');
+  }, []);
+
   if (!permission) {
     return <View style={styles.centrado} />;
   }
@@ -91,6 +99,9 @@ export default function EscaneoMesaScreen() {
         </Pressable>
         <Pressable onPress={irADemostracion}>
           <Text style={styles.linkPrueba}>🧪 Modo prueba: ir directo al menú</Text>
+        </Pressable>
+        <Pressable onPress={irAEmpleado}>
+          <Text style={styles.linkPersonal}>👔 Acceso personal</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -114,6 +125,9 @@ export default function EscaneoMesaScreen() {
 
         <Pressable onPress={irADemostracion} style={styles.botonPrueba}>
           <Text style={styles.linkPrueba}>🧪 Modo prueba: ir directo al menú</Text>
+        </Pressable>
+        <Pressable onPress={irAEmpleado}>
+          <Text style={styles.linkPersonal}>👔 Acceso personal</Text>
         </Pressable>
       </SafeAreaView>
     </View>
@@ -147,5 +161,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textDecorationLine: 'underline',
     opacity: 0.8,
+  },
+  linkPersonal: {
+    color: '#fff',
+    fontSize: 12,
+    opacity: 0.5,
+    marginTop: 10,
   },
 });

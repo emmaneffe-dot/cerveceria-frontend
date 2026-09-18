@@ -125,6 +125,14 @@ export default function CatalogoScreen() {
     }
   };
 
+  // Atajo de prueba (TEMPORAL): simula que el pago salió bien, para poder
+  // revisar la pantalla de confirmación sin depender del backend real.
+  // Sacar esto antes de entregar la app.
+  const simularPagoExitoso = async () => {
+    await AsyncStorage.setItem('id_pedido', 'demo-pedido-1');
+    router.replace('/confirmacion');
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
@@ -162,6 +170,11 @@ export default function CatalogoScreen() {
             </View>
           );
         }}
+        ListFooterComponent={
+          <Pressable onPress={simularPagoExitoso} style={styles.linkPruebaContenedor}>
+            <Text style={styles.linkPrueba}>🧪 Simular pago exitoso (modo prueba)</Text>
+          </Pressable>
+        }
       />
 
       {totalItems > 0 && (
@@ -217,6 +230,8 @@ const styles = StyleSheet.create({
   botonCantidadDeshabilitado: { backgroundColor: '#e5c9a3' },
   botonCantidadTexto: { color: '#fff', fontSize: 18, fontWeight: 'bold', lineHeight: 20 },
   cantidadTexto: { fontSize: 16, fontWeight: '600', minWidth: 18, textAlign: 'center' },
+  linkPruebaContenedor: { paddingVertical: 16, alignItems: 'center' },
+  linkPrueba: { color: '#999', fontSize: 12, textDecorationLine: 'underline' },
   barraInferior: {
     flexDirection: 'row',
     justifyContent: 'space-between',
