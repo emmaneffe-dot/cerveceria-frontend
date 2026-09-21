@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -178,6 +179,7 @@ export default function CatalogoScreen() {
           const cantidad = cantidades[item.id] ?? 0;
           return (
             <View style={styles.fila}>
+              {item.imagen && <Image source={item.imagen} style={styles.fotoProducto} resizeMode="cover" />}
               <View style={styles.filaInfo}>
                 <Text style={styles.nombreProducto}>{item.nombre}</Text>
                 {!!item.descripcion && <Text style={styles.descripcionProducto}>{item.descripcion}</Text>}
@@ -267,6 +269,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.surfaceBorder,
+  },
+  fotoProducto: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    marginRight: 12,
+    backgroundColor: COLORS.surfaceBorder,
   },
   filaInfo: { flex: 1, paddingRight: 12 },
   nombreProducto: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },

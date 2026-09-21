@@ -13,6 +13,7 @@ export type Producto = {
   descripcion?: string;
   precio: number;
   categoria: string; // debe coincidir con la "clave" de alguna categoría en CATEGORIAS
+  imagen?: any; // foto del producto (opcional), un require('@/assets/images/...')
 };
 
 export type Categoria = {
@@ -45,18 +46,22 @@ const p = (
   nombre: string,
   precio: number,
   descripcion?: string,
-): Producto => ({ id: siguienteId++, nombre, precio, categoria, descripcion });
+  imagen?: any,
+): Producto => ({ id: siguienteId++, nombre, precio, categoria, descripcion, imagen });
 
 export const PRODUCTOS: Producto[] = [
   // Cervezas — lata 500cc, sin TACC
-  p('cerveza', 'Golden Ale', 8000),
-  p('cerveza', 'Red Ale', 8000),
-  p('cerveza', 'Hazi IPA', 8000),
-  p('cerveza', 'Barley Wine', 8000),
-  p('cerveza', 'Porter', 8000),
-  p('cerveza', 'IPA', 8000),
-  p('cerveza', 'APA', 8000),
-  p('cerveza', 'Honey', 8000),
+  // (fotos agregadas el 20/09; el mismo diseño de vaso "Ogham" se repite,
+  // elegido por color/estilo para cada birra ya que las fotos no traían
+  // el nombre escrito)
+  p('cerveza', 'Golden Ale', 8000, undefined, require('@/assets/images/cervezas/golden-ale.jpg')),
+  p('cerveza', 'Red Ale', 8000, undefined, require('@/assets/images/cervezas/red-ale.jpg')),
+  p('cerveza', 'Hazi IPA', 8000, undefined, require('@/assets/images/cervezas/hazi-ipa.jpg')),
+  p('cerveza', 'Barley Wine', 8000, undefined, require('@/assets/images/cervezas/barley-wine.jpg')),
+  p('cerveza', 'Porter', 8000, undefined, require('@/assets/images/cervezas/porter.jpg')),
+  p('cerveza', 'IPA', 8000, undefined, require('@/assets/images/cervezas/ipa.jpg')),
+  p('cerveza', 'APA', 8000, undefined, require('@/assets/images/cervezas/apa.jpg')),
+  p('cerveza', 'Honey', 8000, undefined, require('@/assets/images/cervezas/honey.jpg')),
 
   // Tragos con Cerveza
   p('tragos_con_cerveza', 'Jameson Wheat', 13000, 'American + jengibre + almíbar + limón'),
