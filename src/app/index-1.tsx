@@ -1,16 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -24,33 +15,10 @@ import { COLORS } from '@/constants/theme';
 //
 // Diseño (20/09): paleta oscura y premium, un solo color de acento (dorado),
 // con el logo real de Cervecería Ogham (assets/images/logo-ogham.png).
-//
-// Bienvenida con paso a paso (20/09, tarde): antes de mostrar la cámara,
-// la primera vez se explica cómo funciona la app (elegir, pagar, mostrar
-// el QR en la barra). Se guarda en el celular si el usuario tildó "No
-// volver a mostrar", para no repetirla en las próximas visitas. Esto
-// también evita que la cámara aparezca de golpe apenas se abre la app.
-const CLAVE_BIENVENIDA_OCULTA = 'bienvenida_oculta';
-
 export default function EscaneoMesaScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [escaneando, setEscaneando] = useState(true);
   const [cargando, setCargando] = useState(false);
-  const [mostrarBienvenida, setMostrarBienvenida] = useState<boolean | null>(null);
-  const [noMostrarDeNuevo, setNoMostrarDeNuevo] = useState(false);
-
-  useEffect(() => {
-    AsyncStorage.getItem(CLAVE_BIENVENIDA_OCULTA).then((valor) => {
-      setMostrarBienvenida(valor !== 'true');
-    });
-  }, []);
-
-  const alContinuarDeBienvenida = useCallback(async () => {
-    if (noMostrarDeNuevo) {
-      await AsyncStorage.setItem(CLAVE_BIENVENIDA_OCULTA, 'true');
-    }
-    setMostrarBienvenida(false);
-  }, [noMostrarDeNuevo]);
 
   const iniciarSesion = useCallback(async (numeroMesa: number) => {
     setEscaneando(false);
@@ -120,64 +88,6 @@ export default function EscaneoMesaScreen() {
     router.push('/empleado');
   }, []);
 
-  if (mostrarBienvenida === null) {
-    return <View style={styles.centrado} />;
-  }
-
-  if (mostrarBienvenida) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.bienvenidaContenido}>
-          <Image
-            source={require('@/assets/images/logo-ogham.png')}
-            style={styles.logoBienvenida}
-            resizeMode="contain"
-          />
-
-          <Text style={styles.titulo}>¡Bienvenido!</Text>
-          <Text style={styles.textoBienvenida}>Así es pedir desde tu mesa:</Text>
-
-          <View style={styles.pasos}>
-            <View style={styles.paso}>
-              <View style={styles.pasoNumeroCirculo}>
-                <Text style={styles.pasoNumeroTexto}>1</Text>
-              </View>
-              <Text style={styles.pasoTexto}>Elegí lo que vas a tomar en el menú.</Text>
-            </View>
-            <View style={styles.paso}>
-              <View style={styles.pasoNumeroCirculo}>
-                <Text style={styles.pasoNumeroTexto}>2</Text>
-              </View>
-              <Text style={styles.pasoTexto}>Abonalo con tu billetera preferida.</Text>
-            </View>
-            <View style={styles.paso}>
-              <View style={styles.pasoNumeroCirculo}>
-                <Text style={styles.pasoNumeroTexto}>3</Text>
-              </View>
-              <Text style={styles.pasoTexto}>
-                Mostrá tu QR al mozo en la barra y retirá tu pedido 🍹🍻.
-              </Text>
-            </View>
-          </View>
-
-          <Pressable
-            style={({ pressed }) => [styles.boton, pressed && styles.botonPresionado]}
-            onPress={alContinuarDeBienvenida}
-          >
-            <Text style={styles.botonTexto}>Entendido, empezar</Text>
-          </Pressable>
-
-          <Pressable style={styles.checkboxFila} onPress={() => setNoMostrarDeNuevo((actual) => !actual)}>
-            <View style={[styles.checkbox, noMostrarDeNuevo && styles.checkboxMarcado]}>
-              {noMostrarDeNuevo && <Text style={styles.checkboxTilde}>✓</Text>}
-            </View>
-            <Text style={styles.checkboxTexto}>No volver a mostrar</Text>
-          </Pressable>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
   if (!permission) {
     return <View style={styles.centrado} />;
   }
@@ -191,9 +101,9 @@ export default function EscaneoMesaScreen() {
           resizeMode="contain"
         />
 
-        <Text style={styles.titulo}>Casi listo</Text>
+        <Text style={styles.titulo}>Bienvenido a Ogham</Text>
         <Text style={styles.texto}>
-          Necesitamos acceso a tu cámara para escanear el QR de tu mesa.
+          Escaneá el código QR de tu mesa para ver la carta y pedir sin esperar al mozo.
         </Text>
 
         <Pressable
@@ -281,70 +191,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     maxWidth: 280,
   },
-
-  bienvenidaContenido: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 28,
-    gap: 12,
-  },
-  logoBienvenida: {
-    width: 150,
-    height: 130,
-    marginBottom: 2,
-  },
-  textoBienvenida: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginTop: -6,
-  },
-  pasos: {
-    alignSelf: 'stretch',
-    gap: 14,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  paso: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  pasoNumeroCirculo: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: COLORS.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  pasoNumeroTexto: { color: COLORS.onAccent, fontWeight: '700', fontSize: 13 },
-  pasoTexto: {
-    flex: 1,
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  checkboxFila: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 6,
-    padding: 4,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: COLORS.surfaceBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxMarcado: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  checkboxTilde: { color: COLORS.onAccent, fontSize: 13, fontWeight: '700', lineHeight: 14 },
-  checkboxTexto: { color: COLORS.textSecondary, fontSize: 13 },
 
   boton: {
     backgroundColor: COLORS.accent,

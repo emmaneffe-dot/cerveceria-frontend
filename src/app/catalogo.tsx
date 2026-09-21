@@ -4,6 +4,7 @@ import {
   Alert,
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -14,27 +15,24 @@ import * as WebBrowser from 'expo-web-browser';
 import { router } from 'expo-router';
 
 import { API_BASE_URL } from '@/constants/api';
+import { COLORS } from '@/constants/theme';
+import { CATEGORIAS, PRODUCTOS } from '@/constants/productos';
 
 // Pantalla 2: catálogo de productos + carrito.
 //
-// Por ahora los productos son de mentira (mock), escritos acá mismo abajo.
-// Cuando tengamos la URL real del backend, esta lista se va a reemplazar
-// por un pedido a GET /api/productos (mismo formato: id, nombre, precio).
-type Producto = {
-  id: number;
-  nombre: string;
-  descripcion: string;
-  precio: number;
-  categoria: 'Cerveza' | 'Comida';
-};
-
-const PRODUCTOS_MOCK: Producto[] = [
-  { id: 1, nombre: 'IPA Artesanal', descripcion: 'Pinta 500ml, bien lupulada', precio: 4500, categoria: 'Cerveza' },
-  { id: 2, nombre: 'Rubia Golden', descripcion: 'Pinta 500ml, suave', precio: 4200, categoria: 'Cerveza' },
-  { id: 3, nombre: 'Stout', descripcion: 'Pinta 500ml, tostada', precio: 4800, categoria: 'Cerveza' },
-  { id: 4, nombre: 'Tabla de fiambres', descripcion: 'Para compartir', precio: 8500, categoria: 'Comida' },
-  { id: 5, nombre: 'Papas fritas', descripcion: 'Porción grande', precio: 3800, categoria: 'Comida' },
-];
+// Menú real de Ogham (20/09), cargado en src/constants/productos.ts.
+// Se muestra separado por categorías (pestañas arriba) porque así lo va a
+// mandar el backend más adelante: por sección, no todo junto. Por ahora
+// las pestañas solo filtran la lista que ya tenemos acá mismo; el día que
+// el backend esté listo, tocar una pestaña puede pasar a pedir esa
+// categoría puntual a GET /api/productos?categoria=<clave> en vez de
+// filtrar localmente, sin cambiar el resto de la pantalla.
+//
+// El carrito (cantidades) es uno solo para todo el menú: si el cliente
+// agrega cosas de "Cervezas" y después cambia a la pestaña "Vinos", lo que
+// ya eligió sigue contando en el total de abajo.
+//
+// Diseño (20/09): mismo estilo oscuro y premium que la pantalla de bienvenida.
 
 function formatearPrecio(valor: number) {
   return `$${valor.toLocaleString('es-AR')}`;
@@ -44,6 +42,7 @@ export default function CatalogoScreen() {
   const [numeroMesa, setNumeroMesa] = useState<string | null>(null);
   const [cantidades, setCantidades] = useState<Record<number, number>>({});
   const [procesandoPago, setProcesandoPago] = useState(false);
+  const [categoriaActiva, setCategoriaActiva] = useState(CATEGORIAS[0].clave);
 
   useEffect(() => {
     AsyncStorage.getItem('numero_mesa').then(setNumeroMesa);
@@ -66,10 +65,19 @@ export default function CatalogoScreen() {
     });
   };
 
+  // Solo los productos de la categoría que se está mostrando ahora.
+  const productosDeCategoria = useMemo(
+    () => PRODUCTOS.filter((producto) => producto.categoria === categoriaActiva),
+    [categoriaActiva],
+  );
+
+  // El total del carrito se calcula sobre TODOS los productos (no solo los
+  // de la categoría activa), para que no se pierda nada al cambiar de
+  // pestaña.
   const { totalItems, totalPrecio } = useMemo(() => {
     let items = 0;
     let precio = 0;
-    for (const producto of PRODUCTOS_MOCK) {
+    for (const producto of PRODUCTOS) {
       const cantidad = cantidades[producto.id] ?? 0;
       items += cantidad;
       precio += cantidad * producto.precio;
@@ -81,9 +89,10 @@ export default function CatalogoScreen() {
   // genere el pedido y nos devuelva el link de pago de Mercado Pago
   // (init_point). Lo abrimos en un navegador dentro de la app.
   const alPresionarPagar = async () => {
-    const items = PRODUCTOS_MOCK.filter((producto) => (cantidades[producto.id] ?? 0) > 0).map(
-      (producto) => ({ id_producto: producto.id, cantidad: cantidades[producto.id] }),
-    );
+    const items = PRODUCTOS.filter((producto) => (cantidades[producto.id] ?? 0) > 0).map((producto) => ({
+      id_producto: producto.id,
+      cantidad: cantidades[producto.id],
+    }));
 
     if (items.length === 0) return;
 
@@ -140,8 +149,29 @@ export default function CatalogoScreen() {
         {numeroMesa && <Text style={styles.mesa}>Mesa {numeroMesa}</Text>}
       </View>
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.pestanas}
+      >
+        {CATEGORIAS.map((categoria) => {
+          const activa = categoria.clave === categoriaActiva;
+          return (
+            <Pressable
+              key={categoria.clave}
+              onPress={() => setCategoriaActiva(categoria.clave)}
+              style={[styles.pestana, activa && styles.pestanaActiva]}
+            >
+              <Text style={[styles.pestanaTexto, activa && styles.pestanaTextoActivo]}>
+                {categoria.nombre}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <FlatList
-        data={PRODUCTOS_MOCK}
+        data={productosDeCategoria}
         keyExtractor={(producto) => String(producto.id)}
         contentContainerStyle={styles.lista}
         renderItem={({ item }) => {
@@ -150,7 +180,7 @@ export default function CatalogoScreen() {
             <View style={styles.fila}>
               <View style={styles.filaInfo}>
                 <Text style={styles.nombreProducto}>{item.nombre}</Text>
-                <Text style={styles.descripcionProducto}>{item.descripcion}</Text>
+                {!!item.descripcion && <Text style={styles.descripcionProducto}>{item.descripcion}</Text>}
                 <Text style={styles.precioProducto}>{formatearPrecio(item.precio)}</Text>
               </View>
 
@@ -189,7 +219,7 @@ export default function CatalogoScreen() {
             disabled={procesandoPago}
           >
             {procesandoPago ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={COLORS.onAccent} />
             ) : (
               <Text style={styles.botonPagarTexto}>Pagar</Text>
             )}
@@ -201,57 +231,81 @@ export default function CatalogoScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
-  titulo: { fontSize: 26, fontWeight: 'bold' },
-  mesa: { fontSize: 14, color: '#777', marginTop: 2 },
+  titulo: { fontSize: 26, fontWeight: '700', color: COLORS.textPrimary },
+  mesa: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2 },
+
+  pestanas: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  pestana: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+  },
+  pestanaActiva: {
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
+  },
+  pestanaTexto: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  pestanaTextoActivo: { color: COLORS.onAccent },
+
   lista: { paddingHorizontal: 20, paddingBottom: 16, gap: 14 },
   fila: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ddd',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
   },
   filaInfo: { flex: 1, paddingRight: 12 },
-  nombreProducto: { fontSize: 16, fontWeight: '600' },
-  descripcionProducto: { fontSize: 13, color: '#777', marginTop: 2 },
-  precioProducto: { fontSize: 15, fontWeight: '600', color: '#D97706', marginTop: 4 },
+  nombreProducto: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
+  descripcionProducto: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
+  precioProducto: { fontSize: 15, fontWeight: '600', color: COLORS.accent, marginTop: 4 },
   controles: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   botonCantidad: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#D97706',
+    backgroundColor: COLORS.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  botonCantidadDeshabilitado: { backgroundColor: '#e5c9a3' },
-  botonCantidadTexto: { color: '#fff', fontSize: 18, fontWeight: 'bold', lineHeight: 20 },
-  cantidadTexto: { fontSize: 16, fontWeight: '600', minWidth: 18, textAlign: 'center' },
+  botonCantidadDeshabilitado: { backgroundColor: COLORS.surfaceBorder },
+  botonCantidadTexto: { color: COLORS.onAccent, fontSize: 18, fontWeight: 'bold', lineHeight: 20 },
+  cantidadTexto: { fontSize: 16, fontWeight: '600', minWidth: 18, textAlign: 'center', color: COLORS.textPrimary },
   linkPruebaContenedor: { paddingVertical: 16, alignItems: 'center' },
-  linkPrueba: { color: '#999', fontSize: 12, textDecorationLine: 'underline' },
+  linkPrueba: { color: COLORS.textSecondary, fontSize: 12, textDecorationLine: 'underline' },
   barraInferior: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#ddd',
-    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.surfaceBorder,
+    backgroundColor: COLORS.surface,
   },
-  resumenItems: { fontSize: 13, color: '#777' },
-  resumenTotal: { fontSize: 20, fontWeight: 'bold' },
+  resumenItems: { fontSize: 13, color: COLORS.textSecondary },
+  resumenTotal: { fontSize: 20, fontWeight: 'bold', color: COLORS.textPrimary },
   botonPagar: {
-    backgroundColor: '#D97706',
+    backgroundColor: COLORS.accent,
     paddingHorizontal: 28,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     minWidth: 100,
     alignItems: 'center',
   },
   botonPagarDeshabilitado: { opacity: 0.6 },
-  botonPagarTexto: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  botonPagarTexto: { color: COLORS.onAccent, fontSize: 16, fontWeight: '700' },
 });

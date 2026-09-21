@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { API_BASE_URL } from '@/constants/api';
+import { COLORS } from '@/constants/theme';
 
 // PIN de prueba (TEMPORAL): el backend todavía no definió cómo se
 // autentican los empleados (no hay endpoint de login en la guía). Hasta
@@ -31,6 +32,8 @@ type Pedido = {
 // escanea el QR que le muestra el cliente (el id_pedido) para ver el
 // detalle (GET /api/pedidos/{id}) y marcarlo como entregado
 // (PUT /api/pedidos/{id}/entregar).
+//
+// Diseño (20/09): mismo estilo oscuro y premium que el resto de la app.
 export default function EmpleadoScreen() {
   const [autenticado, setAutenticado] = useState(false);
   const [pin, setPin] = useState('');
@@ -169,7 +172,7 @@ export default function EmpleadoScreen() {
           disabled={marcandoEntregado}
         >
           {marcandoEntregado ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={COLORS.onAccent} />
           ) : (
             <Text style={styles.botonTexto}>Marcar como entregado</Text>
           )}
@@ -216,7 +219,7 @@ export default function EmpleadoScreen() {
         <Text style={styles.instruccion}>
           {cargando ? 'Buscando pedido...' : 'Escaneá el QR del cliente'}
         </Text>
-        {cargando && <ActivityIndicator size="large" color="#fff" style={{ marginTop: 12 }} />}
+        {cargando && <ActivityIndicator size="large" color={COLORS.accent} style={{ marginTop: 12 }} />}
 
         <Pressable onPress={verPedidoDePrueba} style={styles.botonPrueba}>
           <Text style={styles.linkPrueba}>🧪 Ver pedido de prueba</Text>
@@ -227,15 +230,22 @@ export default function EmpleadoScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
-  titulo: { fontSize: 24, fontWeight: 'bold' },
-  texto: { textAlign: 'center', fontSize: 16 },
-  total: { fontSize: 18, fontWeight: 'bold', marginTop: 4 },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  centrado: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 12,
+    backgroundColor: COLORS.background,
+  },
+  titulo: { fontSize: 24, fontWeight: 'bold', color: COLORS.textPrimary },
+  texto: { textAlign: 'center', fontSize: 16, color: COLORS.textSecondary },
+  total: { fontSize: 18, fontWeight: 'bold', marginTop: 4, color: COLORS.textPrimary },
   detalle: { alignItems: 'center', gap: 2, marginVertical: 6 },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: COLORS.surfaceBorder,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -243,32 +253,40 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: 140,
     letterSpacing: 4,
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.surface,
   },
   boton: {
-    backgroundColor: '#D97706',
+    backgroundColor: COLORS.accent,
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
     marginTop: 8,
   },
   botonDeshabilitado: { opacity: 0.6 },
-  botonTexto: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  botonTexto: { color: COLORS.onAccent, fontSize: 16, fontWeight: '600' },
   overlay: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  marco: { width: 250, height: 250, borderWidth: 3, borderColor: '#fff', borderRadius: 16 },
+  marco: {
+    width: 250,
+    height: 250,
+    borderWidth: 3,
+    borderColor: COLORS.accent,
+    borderRadius: 16,
+  },
   instruccion: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 16,
     fontWeight: '600',
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: COLORS.surfaceElevated,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
   },
   botonPrueba: { marginTop: 40, padding: 10 },
   linkPrueba: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 13,
     textDecorationLine: 'underline',
-    opacity: 0.8,
+    opacity: 0.85,
   },
 });
