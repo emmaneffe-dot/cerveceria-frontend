@@ -19,25 +19,31 @@ export type Producto = {
 export type Categoria = {
   clave: string;
   nombre: string;
+  // Ícono provisorio (emoji) para cada categoría, mientras no tenemos fotos
+  // reales de cada sección (harían falta fotos armadas de cada trago, y no
+  // es viable pedirle al bar que prepare todos para una sesión de fotos
+  // antes del viernes). El día que haya fotos reales, esto se reemplaza por
+  // un campo "imagen" igual al que ya usan los productos.
+  icono: string;
 };
 
 // Orden en el que se muestran las pestañas de categorías en la pantalla
 // del menú. Al ser una cervecería, arrancamos con "Cervezas".
 export const CATEGORIAS: Categoria[] = [
-  { clave: 'cerveza', nombre: 'Cervezas' },
-  { clave: 'tragos_con_cerveza', nombre: 'Tragos con Cerveza' },
-  { clave: 'sin_alcohol', nombre: 'Sin Alcohol' },
-  { clave: 'negroni', nombre: 'Negroni' },
-  { clave: 'sour', nombre: 'Sour' },
-  { clave: 'cocktails_casa', nombre: 'Cocktails de la Casa' },
-  { clave: 'tiki', nombre: 'Tiki Cocktails' },
-  { clave: 'clasicos', nombre: 'Classic Cocktails' },
-  { clave: 'vinos', nombre: 'Vinos' },
-  { clave: 'espumantes', nombre: 'Espumantes y Otros' },
-  { clave: 'vodka', nombre: 'Vodka' },
-  { clave: 'ron', nombre: 'Ron' },
-  { clave: 'tequila', nombre: 'Tequila' },
-  { clave: 'whisky', nombre: 'Whiskies' },
+  { clave: 'cerveza', nombre: 'Cervezas', icono: '🍺' },
+  { clave: 'tragos_con_cerveza', nombre: 'Tragos con Cerveza', icono: '🍻' },
+  { clave: 'sin_alcohol', nombre: 'Sin Alcohol', icono: '🥤' },
+  { clave: 'negroni', nombre: 'Negroni', icono: '🍸' },
+  { clave: 'sour', nombre: 'Sour', icono: '🍋' },
+  { clave: 'cocktails_casa', nombre: 'Cocktails de la Casa', icono: '🍹' },
+  { clave: 'tiki', nombre: 'Tiki Cocktails', icono: '🌺' },
+  { clave: 'clasicos', nombre: 'Classic Cocktails', icono: '🍸' },
+  { clave: 'vinos', nombre: 'Vinos', icono: '🍷' },
+  { clave: 'espumantes', nombre: 'Espumantes y Otros', icono: '🥂' },
+  { clave: 'vodka', nombre: 'Vodka', icono: '🧊' },
+  { clave: 'ron', nombre: 'Ron', icono: '🥃' },
+  { clave: 'tequila', nombre: 'Tequila', icono: '🌵' },
+  { clave: 'whisky', nombre: 'Whiskies', icono: '🥃' },
 ];
 
 let siguienteId = 1;

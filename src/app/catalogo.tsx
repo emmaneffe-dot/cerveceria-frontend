@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -43,6 +43,15 @@ export default function CatalogoScreen() {
   const [cantidades, setCantidades] = useState<Record<number, number>>({});
   const [procesandoPago, setProcesandoPago] = useState(false);
   const [categoriaActiva, setCategoriaActiva] = useState(CATEGORIAS[0].clave);
+  const listaRef = useRef<FlatList>(null);
+
+  // Al cambiar de categoría, volvemos la lista de productos al principio.
+  // Antes (sin esto) la lista podía quedar scrolleada a la mitad de la
+  // categoría anterior, lo que se sentía como un salto brusco.
+  const alTocarCategoria = (clave: string) => {
+    setCategoriaActiva(clave);
+    listaRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
 
   const sumarUno = (id: number) => {
     setCantidades((actual) => ({ ...actual, [id]: (actual[id] ?? 0) + 1 }));
@@ -64,6 +73,11 @@ export default function CatalogoScreen() {
   // Solo los productos de la categoría que se está mostrando ahora.
   const productosDeCategoria = useMemo(
     () => PRODUCTOS.filter((producto) => producto.categoria === categoriaActiva),
+    [categoriaActiva],
+  );
+
+  const categoriaInfo = useMemo(
+    () => CATEGORIAS.find((categoria) => categoria.clave === categoriaActiva),
     [categoriaActiva],
   );
 
@@ -142,28 +156,44 @@ export default function CatalogoScreen() {
         <Text style={styles.titulo}>Menú</Text>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.pestanas}
-      >
-        {CATEGORIAS.map((categoria) => {
-          const activa = categoria.clave === categoriaActiva;
-          return (
-            <Pressable
-              key={categoria.clave}
-              onPress={() => setCategoriaActiva(categoria.clave)}
-              style={[styles.pestana, activa && styles.pestanaActiva]}
-            >
-              <Text style={[styles.pestanaTexto, activa && styles.pestanaTextoActivo]}>
-                {categoria.nombre}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <View style={styles.pestanasContenedor}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pestanas}
+        >
+          {CATEGORIAS.map((categoria) => {
+            const activa = categoria.clave === categoriaActiva;
+            return (
+              <Pressable
+                key={categoria.clave}
+                onPress={() => alTocarCategoria(categoria.clave)}
+                style={[styles.pestana, activa && styles.pestanaActiva]}
+              >
+                <Text
+                  style={[styles.pestanaTexto, activa && styles.pestanaTextoActivo]}
+                  numberOfLines={1}
+                >
+                  {categoria.icono} {categoria.nombre}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {categoriaInfo && (
+        <View style={styles.bannerCategoria}>
+          <View style={styles.bannerIconoCirculo}>
+            <Text style={styles.bannerIcono}>{categoriaInfo.icono}</Text>
+          </View>
+          <Text style={styles.bannerTexto}>{categoriaInfo.nombre}</Text>
+        </View>
+      )}
 
       <FlatList
+        ref={listaRef}
+        style={styles.listaContenedor}
         data={productosDeCategoria}
         keyExtractor={(producto) => String(producto.id)}
         contentContainerStyle={styles.lista}
@@ -229,10 +259,18 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
   titulo: { fontSize: 26, fontWeight: '700', color: COLORS.textPrimary },
 
+  // Alto fijo para la fila de pestañas: así nunca se achica ni se pisa con
+  // la lista de productos de abajo, sin importar cuántos productos tenga
+  // la categoría elegida (ese era el bug: la lista, al no tener un alto
+  // propio, "empujaba" todo y tapaba o cortaba el texto de las pestañas).
+  pestanasContenedor: {
+    height: 52,
+  },
   pestanas: {
     paddingHorizontal: 20,
     paddingBottom: 12,
     gap: 8,
+    alignItems: 'center',
   },
   pestana: {
     paddingHorizontal: 16,
@@ -241,6 +279,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.surfaceBorder,
+    flexShrink: 0,
   },
   pestanaActiva: {
     backgroundColor: COLORS.accent,
@@ -249,6 +288,36 @@ const styles = StyleSheet.create({
   pestanaTexto: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
   pestanaTextoActivo: { color: COLORS.onAccent },
 
+  // Banner de la categoría activa: ocupa el lugar de la "foto de sección"
+  // mientras no tengamos fotos reales de cada categoría (ver comentario en
+  // productos.ts). Es un ícono grande + el nombre, para que al cambiar de
+  // pestaña quede claro y vistoso en qué sección está el cliente.
+  bannerCategoria: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: 16,
+  },
+  bannerIconoCirculo: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerIcono: { fontSize: 22 },
+  bannerTexto: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary },
+
+  // flex: 1 acá es la parte clave del arreglo: le da a la lista un alto
+  // delimitado (el resto de la pantalla) para que haga scroll DENTRO de
+  // ese espacio en vez de intentar desplegarse entera y empujar todo lo
+  // demás.
+  listaContenedor: { flex: 1 },
   lista: { paddingHorizontal: 20, paddingBottom: 16, gap: 14 },
   fila: {
     flexDirection: 'row',
