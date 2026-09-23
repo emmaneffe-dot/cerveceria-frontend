@@ -16,11 +16,9 @@ import { COLORS } from '@/constants/theme';
 // mozo lo pueda leer bien.
 export default function ConfirmacionScreen() {
   const [idPedido, setIdPedido] = useState<string | null>(null);
-  const [numeroMesa, setNumeroMesa] = useState<string | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem('id_pedido').then(setIdPedido);
-    AsyncStorage.getItem('numero_mesa').then(setNumeroMesa);
   }, []);
 
   return (
@@ -36,7 +34,6 @@ export default function ConfirmacionScreen() {
         )}
       </View>
 
-      {numeroMesa && <Text style={styles.mesa}>Mesa {numeroMesa}</Text>}
       {idPedido && <Text style={styles.pedido}>Pedido #{idPedido}</Text>}
     </SafeAreaView>
   );
@@ -61,6 +58,5 @@ const styles = StyleSheet.create({
     borderColor: COLORS.surfaceBorder,
   },
   textoQrVacio: { textAlign: 'center', fontSize: 15, color: '#555', maxWidth: 180 },
-  mesa: { fontSize: 14, color: COLORS.textSecondary },
   pedido: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
 });

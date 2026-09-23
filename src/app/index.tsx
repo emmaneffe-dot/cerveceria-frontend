@@ -14,12 +14,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { API_BASE_URL } from '@/constants/api';
+import { API_BASE_URL, HEADERS_NGROK } from '@/constants/api';
 import { COLORS } from '@/constants/theme';
 
-// Pantalla 1 ("landing" de la app): el cliente escanea el QR físico de su mesa.
-// Le pedimos al backend una "sesión anónima" para esa mesa y guardamos lo que
-// nos devuelve (el cliente_uuid) en el celular, para usarlo en el resto de
+// Pantalla 1 ("landing" de la app): el cliente escanea cualquiera de los QR
+// físicos de la barra (no están atados a una mesa puntual: el modelo es
+// "libre" — cualquiera que llega escanea, elige, paga y retira en la barra).
+// Le pedimos al backend una "sesión anónima" y guardamos lo que nos
+// devuelve (el cliente_uuid) en el celular, para usarlo en el resto de
 // las pantallas.
 //
 // Diseño (20/09): paleta oscura y premium, un solo color de acento (dorado),
@@ -32,7 +34,7 @@ import { COLORS } from '@/constants/theme';
 // también evita que la cámara aparezca de golpe apenas se abre la app.
 const CLAVE_BIENVENIDA_OCULTA = 'bienvenida_oculta';
 
-export default function EscaneoMesaScreen() {
+export default function EscaneoQrScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [escaneando, setEscaneando] = useState(true);
   const [cargando, setCargando] = useState(false);
@@ -52,14 +54,13 @@ export default function EscaneoMesaScreen() {
     setMostrarBienvenida(false);
   }, [noMostrarDeNuevo]);
 
-  const iniciarSesion = useCallback(async (numeroMesa: number) => {
+  const iniciarSesion = useCallback(async () => {
     setEscaneando(false);
     setCargando(true);
     try {
       const respuesta = await fetch(`${API_BASE_URL}/api/sesiones/anonima`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ numero_mesa: numeroMesa }),
+        headers: { 'Content-Type': 'application/json', ...HEADERS_NGROK },
       });
 
       if (!respuesta.ok) {
@@ -69,7 +70,6 @@ export default function EscaneoMesaScreen() {
       const datos = await respuesta.json();
 
       await AsyncStorage.setItem('cliente_uuid', datos.cliente_uuid);
-      await AsyncStorage.setItem('numero_mesa', String(datos.numero_mesa));
 
       router.replace('/catalogo');
     } catch (error) {
@@ -84,31 +84,16 @@ export default function EscaneoMesaScreen() {
     }
   }, []);
 
-  const alEscanear = useCallback(
-    ({ data }: { data: string }) => {
-      if (!escaneando) return;
-
-      const numeroMesa = parseInt(data.trim(), 10);
-
-      if (Number.isNaN(numeroMesa)) {
-        setEscaneando(false);
-        Alert.alert('QR no reconocido', `Se esperaba un número de mesa, pero se leyó: "${data}"`, [
-          { text: 'Volver a intentar', onPress: () => setEscaneando(true) },
-        ]);
-        return;
-      }
-
-      iniciarSesion(numeroMesa);
-    },
-    [escaneando, iniciarSesion],
-  );
+  const alEscanear = useCallback(() => {
+    if (!escaneando) return;
+    iniciarSesion();
+  }, [escaneando, iniciarSesion]);
 
   // Atajo de prueba (TEMPORAL): mientras no haya backend real, esto permite
   // revisar el catálogo y la pantalla de pago sin depender de la conexión.
   // Sacar esta función y el botón antes de entregar la app.
   const irADemostracion = useCallback(async () => {
     await AsyncStorage.setItem('cliente_uuid', 'demo-uuid-de-prueba');
-    await AsyncStorage.setItem('numero_mesa', '12');
     router.replace('/catalogo');
   }, []);
 
@@ -135,7 +120,7 @@ export default function EscaneoMesaScreen() {
           />
 
           <Text style={styles.titulo}>¡Bienvenido!</Text>
-          <Text style={styles.textoBienvenida}>Así es pedir desde tu mesa:</Text>
+          <Text style={styles.textoBienvenida}>Así es pedir en Ogham:</Text>
 
           <View style={styles.pasos}>
             <View style={styles.paso}>
@@ -193,7 +178,7 @@ export default function EscaneoMesaScreen() {
 
         <Text style={styles.titulo}>Casi listo</Text>
         <Text style={styles.texto}>
-          Necesitamos acceso a tu cámara para escanear el QR de tu mesa.
+          Necesitamos acceso a tu cámara para escanear el QR.
         </Text>
 
         <Pressable
@@ -234,7 +219,7 @@ export default function EscaneoMesaScreen() {
 
         <View style={styles.instruccionContenedor}>
           <Text style={styles.instruccion}>
-            {cargando ? 'Conectando...' : 'Apuntá al QR de tu mesa'}
+            {cargando ? 'Conectando...' : 'Apuntá al QR'}
           </Text>
           {cargando && <ActivityIndicator size="small" color={COLORS.accent} style={{ marginTop: 8 }} />}
         </View>

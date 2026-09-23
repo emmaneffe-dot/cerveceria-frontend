@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { router } from 'expo-router';
 
-import { API_BASE_URL } from '@/constants/api';
+import { API_BASE_URL, HEADERS_NGROK } from '@/constants/api';
 import { COLORS } from '@/constants/theme';
 import { CATEGORIAS, PRODUCTOS } from '@/constants/productos';
 
@@ -40,14 +40,9 @@ function formatearPrecio(valor: number) {
 }
 
 export default function CatalogoScreen() {
-  const [numeroMesa, setNumeroMesa] = useState<string | null>(null);
   const [cantidades, setCantidades] = useState<Record<number, number>>({});
   const [procesandoPago, setProcesandoPago] = useState(false);
   const [categoriaActiva, setCategoriaActiva] = useState(CATEGORIAS[0].clave);
-
-  useEffect(() => {
-    AsyncStorage.getItem('numero_mesa').then(setNumeroMesa);
-  }, []);
 
   const sumarUno = (id: number) => {
     setCantidades((actual) => ({ ...actual, [id]: (actual[id] ?? 0) + 1 }));
@@ -100,14 +95,12 @@ export default function CatalogoScreen() {
     setProcesandoPago(true);
     try {
       const clienteUuid = await AsyncStorage.getItem('cliente_uuid');
-      const numeroMesaGuardado = await AsyncStorage.getItem('numero_mesa');
 
       const respuesta = await fetch(`${API_BASE_URL}/api/pedidos/checkout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...HEADERS_NGROK },
         body: JSON.stringify({
           cliente_uuid: clienteUuid,
-          numero_mesa: numeroMesaGuardado ? parseInt(numeroMesaGuardado, 10) : null,
           items,
         }),
       });
@@ -147,7 +140,6 @@ export default function CatalogoScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <Text style={styles.titulo}>Menú</Text>
-        {numeroMesa && <Text style={styles.mesa}>Mesa {numeroMesa}</Text>}
       </View>
 
       <ScrollView
@@ -236,7 +228,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
   titulo: { fontSize: 26, fontWeight: '700', color: COLORS.textPrimary },
-  mesa: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2 },
 
   pestanas: {
     paddingHorizontal: 20,

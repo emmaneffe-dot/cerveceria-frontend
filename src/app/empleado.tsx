@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { API_BASE_URL } from '@/constants/api';
+import { API_BASE_URL, HEADERS_NGROK } from '@/constants/api';
 import { COLORS } from '@/constants/theme';
 
 // PIN de prueba (TEMPORAL): el backend todavía no definió cómo se
@@ -22,7 +22,6 @@ const PIN_DEMO = '1234';
 
 type Pedido = {
   id: number | string;
-  numero_mesa?: number;
   estado?: string;
   items?: { nombre?: string; cantidad?: number }[];
   monto_total?: number;
@@ -56,7 +55,9 @@ export default function EmpleadoScreen() {
     setEscaneando(false);
     setCargando(true);
     try {
-      const respuesta = await fetch(`${API_BASE_URL}/api/pedidos/${idPedido}`);
+      const respuesta = await fetch(`${API_BASE_URL}/api/pedidos/${idPedido}`, {
+        headers: HEADERS_NGROK,
+      });
 
       if (!respuesta.ok) {
         throw new Error(`El servidor respondió con un error (código ${respuesta.status})`);
@@ -90,6 +91,7 @@ export default function EmpleadoScreen() {
     try {
       const respuesta = await fetch(`${API_BASE_URL}/api/pedidos/${pedido.id}/entregar`, {
         method: 'PUT',
+        headers: HEADERS_NGROK,
       });
 
       if (!respuesta.ok) {
@@ -118,7 +120,6 @@ export default function EmpleadoScreen() {
   const verPedidoDePrueba = () => {
     setPedido({
       id: 'demo-pedido-1',
-      numero_mesa: 12,
       estado: 'PAGADO',
       items: [
         { nombre: 'IPA Artesanal', cantidad: 1 },
@@ -153,7 +154,6 @@ export default function EmpleadoScreen() {
     return (
       <SafeAreaView style={styles.centrado}>
         <Text style={styles.titulo}>Pedido #{pedido.id}</Text>
-        {pedido.numero_mesa != null && <Text style={styles.texto}>Mesa {pedido.numero_mesa}</Text>}
         {pedido.estado && <Text style={styles.texto}>Estado: {pedido.estado}</Text>}
 
         <View style={styles.detalle}>
