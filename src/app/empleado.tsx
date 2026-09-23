@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -14,84 +14,106 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_BASE_URL, HEADERS_NGROK } from '@/constants/api';
 import { COLORS } from '@/constants/theme';
 
-// PIN de prueba (TEMPORAL): el backend todavía no definió cómo se
-// autentican los empleados (no hay endpoint de login en la guía). Hasta
-// que se defina, usamos este PIN fijo solo para poder armar y probar la
-// pantalla. Ver "Decisión pendiente" en el resumen del proyecto.
-const PIN_DEMO = '1234';
-
-type Pedido = {
-  id: number | string;
-  estado?: string;
-  items?: { nombre?: string; cantidad?: number }[];
-  monto_total?: number;
+// Tipos alineados con el backend real (Rodrigo, revisado 23/09 contra
+// github.com/NumberThreee/cerveceria-backend, rama feature/catalogo-productos).
+// Los modelos Pedido/DetallePedido/Producto del backend NO tienen anotación
+// @JsonProperty, así que Spring los serializa con el nombre tal cual está en
+// el código Java (camelCase): montoTotal, clienteUuid, precioUnitarioHistorico.
+type ProductoDelDetalle = {
+  id: number;
+  nombre: string;
 };
 
-// Pantalla 5: acceso del personal de barra. Primero pide un PIN, después
-// escanea el QR que le muestra el cliente (el id_pedido) para ver el
-// detalle (GET /api/pedidos/{id}) y marcarlo como entregado
-// (PUT /api/pedidos/{id}/entregar).
+type DetallePedido = {
+  id: number;
+  producto: ProductoDelDetalle;
+  cantidad: number;
+  precioUnitarioHistorico: number;
+};
+
+type Pedido = {
+  id: number;
+  estado: string;
+  montoTotal: number;
+  detalles: DetallePedido[];
+};
+
+// Pantalla 5: acceso del personal de barra.
 //
-// Diseño (20/09): mismo estilo oscuro y premium que el resto de la app.
+// Diseño real del backend (23/09): no existe un endpoint para buscar UN
+// pedido por id, así que esta pantalla ya no escanea QR. El flujo real es:
+//   1) GET /api/empleado/pedidos  (header X-Empleado-Pin) → lista de
+//      pedidos con estado PAGADO, esperando para entregar.
+//   2) El mozo toca un pedido de la lista para ver el detalle.
+//   3) POST /api/empleado/pedidos/{id}/entregar (header X-Empleado-Pin)
+//      para marcarlo como entregado.
+// El PIN no se valida acá: se manda en cada pedido y es el backend el que
+// lo valida contra la tabla de empleados (401 si es inválido).
 export default function EmpleadoScreen() {
-  const [autenticado, setAutenticado] = useState(false);
   const [pin, setPin] = useState('');
-  const [permission, requestPermission] = useCameraPermissions();
-  const [escaneando, setEscaneando] = useState(true);
+  const [pinConfirmado, setPinConfirmado] = useState<string | null>(null);
+  const [esDemo, setEsDemo] = useState(false);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [cargando, setCargando] = useState(false);
-  const [pedido, setPedido] = useState<Pedido | null>(null);
+  const [pedidoSeleccionado, setPedidoSeleccionado] = useState<Pedido | null>(null);
   const [marcandoEntregado, setMarcandoEntregado] = useState(false);
 
-  const validarPin = () => {
-    if (pin === PIN_DEMO) {
-      setAutenticado(true);
-    } else {
-      Alert.alert('PIN incorrecto', 'Probá de nuevo.');
-      setPin('');
-    }
-  };
-
-  const buscarPedido = useCallback(async (idPedido: string) => {
-    setEscaneando(false);
+  const traerPedidos = useCallback(async (pinAUsar: string) => {
     setCargando(true);
     try {
-      const respuesta = await fetch(`${API_BASE_URL}/api/pedidos/${idPedido}`, {
-        headers: HEADERS_NGROK,
+      const respuesta = await fetch(`${API_BASE_URL}/api/empleado/pedidos`, {
+        headers: { 'X-Empleado-Pin': pinAUsar, ...HEADERS_NGROK },
       });
+
+      if (respuesta.status === 401) {
+        Alert.alert('PIN incorrecto', 'Probá de nuevo.');
+        setPin('');
+        return;
+      }
 
       if (!respuesta.ok) {
         throw new Error(`El servidor respondió con un error (código ${respuesta.status})`);
       }
 
       const datos = await respuesta.json();
-      setPedido(datos);
+      setPedidos(datos);
+      setEsDemo(false);
+      setPinConfirmado(pinAUsar);
     } catch (error) {
       Alert.alert(
-        'No se pudo traer el pedido',
-        'Revisá que el backend esté prendido y que la dirección en src/constants/api.ts sea la correcta.\n\nDetalle: ' +
+        'No se pudo conectar con el backend',
+        'Revisá que el servidor esté prendido y que la dirección en src/constants/api.ts sea la correcta.\n\nDetalle: ' +
           String(error),
-        [{ text: 'Reintentar', onPress: () => setEscaneando(true) }],
       );
     } finally {
       setCargando(false);
     }
   }, []);
 
-  const alEscanear = useCallback(
-    ({ data }: { data: string }) => {
-      if (!escaneando) return;
-      buscarPedido(data.trim());
-    },
-    [escaneando, buscarPedido],
-  );
-
-  const marcarEntregado = async () => {
-    if (!pedido) return;
+  const marcarEntregado = async (pedido: Pedido) => {
     setMarcandoEntregado(true);
+
+    // Modo prueba: no hay backend real de por medio, solo simulamos.
+    if (esDemo) {
+      setTimeout(() => {
+        setMarcandoEntregado(false);
+        Alert.alert('¡Listo! (modo prueba)', 'Pedido marcado como entregado.', [
+          {
+            text: 'OK',
+            onPress: () => {
+              setPedidoSeleccionado(null);
+              setPedidos((actual) => actual.filter((p) => p.id !== pedido.id));
+            },
+          },
+        ]);
+      }, 400);
+      return;
+    }
+
     try {
-      const respuesta = await fetch(`${API_BASE_URL}/api/pedidos/${pedido.id}/entregar`, {
-        method: 'PUT',
-        headers: HEADERS_NGROK,
+      const respuesta = await fetch(`${API_BASE_URL}/api/empleado/pedidos/${pedido.id}/entregar`, {
+        method: 'POST',
+        headers: { 'X-Empleado-Pin': pinConfirmado ?? '', ...HEADERS_NGROK },
       });
 
       if (!respuesta.ok) {
@@ -102,8 +124,8 @@ export default function EmpleadoScreen() {
         {
           text: 'OK',
           onPress: () => {
-            setPedido(null);
-            setEscaneando(true);
+            setPedidoSeleccionado(null);
+            setPedidos((actual) => actual.filter((p) => p.id !== pedido.id));
           },
         },
       ]);
@@ -114,26 +136,36 @@ export default function EmpleadoScreen() {
     }
   };
 
-  // Atajo de prueba (TEMPORAL): mostrar un pedido de mentira sin depender
-  // del backend real, para poder revisar esta pantalla. Sacar antes de
-  // entregar la app.
-  const verPedidoDePrueba = () => {
-    setPedido({
-      id: 'demo-pedido-1',
-      estado: 'PAGADO',
-      items: [
-        { nombre: 'IPA Artesanal', cantidad: 1 },
-        { nombre: 'Rubia Golden', cantidad: 1 },
-      ],
-      monto_total: 8700,
-    });
+  // Atajo de prueba (TEMPORAL): entra directo con una lista de pedidos de
+  // mentira, sin depender del backend real. Sacar antes de entregar la app.
+  const verPedidosDePrueba = () => {
+    setPedidos([
+      {
+        id: 1001,
+        estado: 'PAGADO',
+        montoTotal: 16700,
+        detalles: [
+          { id: 1, producto: { id: 1, nombre: 'Golden Ale' }, cantidad: 1, precioUnitarioHistorico: 8000 },
+          { id: 2, producto: { id: 9, nombre: 'IBU' }, cantidad: 1, precioUnitarioHistorico: 13000 },
+        ],
+      },
+      {
+        id: 1002,
+        estado: 'PAGADO',
+        montoTotal: 8000,
+        detalles: [{ id: 3, producto: { id: 3, nombre: 'Hazi IPA' }, cantidad: 1, precioUnitarioHistorico: 8000 }],
+      },
+    ]);
+    setEsDemo(true);
+    setPinConfirmado('demo');
   };
 
-  if (!autenticado) {
+  // Pantalla de PIN
+  if (!pinConfirmado) {
     return (
       <SafeAreaView style={styles.centrado}>
         <Text style={styles.titulo}>🔒 Acceso de empleado</Text>
-        <Text style={styles.texto}>Ingresá tu PIN para escanear pedidos.</Text>
+        <Text style={styles.texto}>Ingresá tu PIN para ver los pedidos.</Text>
         <TextInput
           style={styles.input}
           value={pin}
@@ -143,32 +175,45 @@ export default function EmpleadoScreen() {
           maxLength={6}
           placeholder="PIN"
         />
-        <Pressable style={styles.boton} onPress={validarPin}>
-          <Text style={styles.botonTexto}>Ingresar</Text>
+        <Pressable
+          style={[styles.boton, (cargando || pin.length === 0) && styles.botonDeshabilitado]}
+          onPress={() => traerPedidos(pin)}
+          disabled={cargando || pin.length === 0}
+        >
+          {cargando ? (
+            <ActivityIndicator color={COLORS.onAccent} />
+          ) : (
+            <Text style={styles.botonTexto}>Ingresar</Text>
+          )}
+        </Pressable>
+
+        <Pressable onPress={verPedidosDePrueba} style={styles.botonPrueba}>
+          <Text style={styles.linkPrueba}>🧪 Ver pedidos de prueba</Text>
         </Pressable>
       </SafeAreaView>
     );
   }
 
-  if (pedido) {
+  // Detalle de un pedido
+  if (pedidoSeleccionado) {
     return (
       <SafeAreaView style={styles.centrado}>
-        <Text style={styles.titulo}>Pedido #{pedido.id}</Text>
-        {pedido.estado && <Text style={styles.texto}>Estado: {pedido.estado}</Text>}
+        <Text style={styles.titulo}>Pedido #{pedidoSeleccionado.id}</Text>
+        <Text style={styles.texto}>Estado: {pedidoSeleccionado.estado}</Text>
 
         <View style={styles.detalle}>
-          {pedido.items?.map((item, indice) => (
-            <Text key={indice} style={styles.texto}>
-              {item.cantidad}x {item.nombre}
+          {pedidoSeleccionado.detalles?.map((detalle) => (
+            <Text key={detalle.id} style={styles.texto}>
+              {detalle.cantidad}x {detalle.producto?.nombre}
             </Text>
           ))}
         </View>
 
-        {pedido.monto_total != null && <Text style={styles.total}>Total: ${pedido.monto_total}</Text>}
+        <Text style={styles.total}>Total: ${pedidoSeleccionado.montoTotal}</Text>
 
         <Pressable
           style={[styles.boton, marcandoEntregado && styles.botonDeshabilitado]}
-          onPress={marcarEntregado}
+          onPress={() => marcarEntregado(pedidoSeleccionado)}
           disabled={marcandoEntregado}
         >
           {marcandoEntregado ? (
@@ -178,54 +223,52 @@ export default function EmpleadoScreen() {
           )}
         </Pressable>
 
-        <Pressable
-          onPress={() => {
-            setPedido(null);
-            setEscaneando(true);
-          }}
-        >
-          <Text style={styles.linkPrueba}>Escanear otro pedido</Text>
+        <Pressable onPress={() => setPedidoSeleccionado(null)}>
+          <Text style={styles.linkPrueba}>Volver a la lista</Text>
         </Pressable>
       </SafeAreaView>
     );
   }
 
-  if (!permission) {
-    return <View style={styles.centrado} />;
-  }
-
-  if (!permission.granted) {
-    return (
-      <SafeAreaView style={styles.centrado}>
-        <Text style={styles.texto}>Necesitamos permiso para usar la cámara.</Text>
-        <Pressable style={styles.boton} onPress={requestPermission}>
-          <Text style={styles.botonTexto}>Dar permiso a la cámara</Text>
-        </Pressable>
-      </SafeAreaView>
-    );
-  }
-
+  // Lista de pedidos pagados, esperando entrega
   return (
-    <View style={styles.container}>
-      <CameraView
-        style={StyleSheet.absoluteFillObject}
-        facing="back"
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        onBarcodeScanned={escaneando ? alEscanear : undefined}
-      />
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <View style={styles.header}>
+        <Text style={styles.tituloLista}>Pedidos por entregar</Text>
+        {!esDemo && (
+          <Pressable onPress={() => traerPedidos(pinConfirmado)}>
+            <Text style={styles.linkPrueba}>🔄 Actualizar</Text>
+          </Pressable>
+        )}
+      </View>
 
-      <SafeAreaView style={styles.overlay}>
-        <View style={styles.marco} />
-        <Text style={styles.instruccion}>
-          {cargando ? 'Buscando pedido...' : 'Escaneá el QR del cliente'}
-        </Text>
-        {cargando && <ActivityIndicator size="large" color={COLORS.accent} style={{ marginTop: 12 }} />}
-
-        <Pressable onPress={verPedidoDePrueba} style={styles.botonPrueba}>
-          <Text style={styles.linkPrueba}>🧪 Ver pedido de prueba</Text>
-        </Pressable>
-      </SafeAreaView>
-    </View>
+      {cargando ? (
+        <ActivityIndicator size="large" color={COLORS.accent} style={{ marginTop: 24 }} />
+      ) : (
+        <FlatList
+          style={styles.listaContenedor}
+          data={pedidos}
+          keyExtractor={(pedido) => String(pedido.id)}
+          contentContainerStyle={styles.lista}
+          ListEmptyComponent={
+            <Text style={[styles.texto, { marginTop: 24 }]}>
+              No hay pedidos pagados esperando entrega.
+            </Text>
+          }
+          renderItem={({ item }) => (
+            <Pressable style={styles.filaPedido} onPress={() => setPedidoSeleccionado(item)}>
+              <View style={styles.filaInfo}>
+                <Text style={styles.nombrePedido}>Pedido #{item.id}</Text>
+                <Text style={styles.descripcionPedido}>
+                  {item.detalles?.length ?? 0} {item.detalles?.length === 1 ? 'ítem' : 'ítems'}
+                </Text>
+              </View>
+              <Text style={styles.precioPedido}>${item.montoTotal}</Text>
+            </Pressable>
+          )}
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
@@ -265,28 +308,38 @@ const styles = StyleSheet.create({
   },
   botonDeshabilitado: { opacity: 0.6 },
   botonTexto: { color: COLORS.onAccent, fontSize: 16, fontWeight: '600' },
-  overlay: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  marco: {
-    width: 250,
-    height: 250,
-    borderWidth: 3,
-    borderColor: COLORS.accent,
-    borderRadius: 16,
-  },
-  instruccion: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-    backgroundColor: COLORS.surfaceElevated,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  botonPrueba: { marginTop: 40, padding: 10 },
+  botonPrueba: { marginTop: 24, padding: 10 },
   linkPrueba: {
     color: COLORS.textPrimary,
     fontSize: 13,
     textDecorationLine: 'underline',
     opacity: 0.85,
   },
+
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  tituloLista: { fontSize: 22, fontWeight: '700', color: COLORS.textPrimary },
+  listaContenedor: { flex: 1 },
+  lista: { paddingHorizontal: 20, paddingBottom: 16, gap: 12, flexGrow: 1 },
+  filaPedido: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+  },
+  filaInfo: { flex: 1, paddingRight: 12 },
+  nombrePedido: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
+  descripcionPedido: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
+  precioPedido: { fontSize: 15, fontWeight: '600', color: COLORS.accent },
 });
