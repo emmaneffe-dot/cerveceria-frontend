@@ -34,17 +34,45 @@ import { COLORS } from '@/constants/theme';
 // también evita que la cámara aparezca de golpe apenas se abre la app.
 const CLAVE_BIENVENIDA_OCULTA = 'bienvenida_oculta';
 
+// Sesión persistente (23/09): una vez escaneado el QR, la sesión queda
+// activa 2 horas. Mientras dure, si la persona vuelve a abrir la app no
+// hace falta escanear de nuevo: pasa directo al menú. Guardamos el
+// momento exacto en que se creó junto con el cliente_uuid para poder
+// calcular si sigue vigente.
+const CLAVE_SESION_CREADA_EN = 'sesion_creada_en';
+const DURACION_SESION_MS = 2 * 60 * 60 * 1000; // 2 horas
+
 export default function EscaneoQrScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [escaneando, setEscaneando] = useState(true);
   const [cargando, setCargando] = useState(false);
+  const [comprobandoSesion, setComprobandoSesion] = useState(true);
   const [mostrarBienvenida, setMostrarBienvenida] = useState<boolean | null>(null);
   const [noMostrarDeNuevo, setNoMostrarDeNuevo] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(CLAVE_BIENVENIDA_OCULTA).then((valor) => {
-      setMostrarBienvenida(valor !== 'true');
-    });
+    (async () => {
+      const [clienteUuid, creadaEnTexto] = await Promise.all([
+        AsyncStorage.getItem('cliente_uuid'),
+        AsyncStorage.getItem(CLAVE_SESION_CREADA_EN),
+      ]);
+
+      const creadaEn = creadaEnTexto ? Number(creadaEnTexto) : null;
+      const sesionVigente =
+        !!clienteUuid && !!creadaEn && Date.now() - creadaEn < DURACION_SESION_MS;
+
+      if (sesionVigente) {
+        // Ya hay una sesión activa de hace menos de 2 horas: nos salteamos
+        // la bienvenida y la cámara, directo al menú.
+        router.replace('/catalogo');
+        return;
+      }
+
+      setComprobandoSesion(false);
+
+      const bienvenidaOculta = await AsyncStorage.getItem(CLAVE_BIENVENIDA_OCULTA);
+      setMostrarBienvenida(bienvenidaOculta !== 'true');
+    })();
   }, []);
 
   const alContinuarDeBienvenida = useCallback(async () => {
@@ -70,6 +98,7 @@ export default function EscaneoQrScreen() {
       const datos = await respuesta.json();
 
       await AsyncStorage.setItem('cliente_uuid', datos.cliente_uuid);
+      await AsyncStorage.setItem(CLAVE_SESION_CREADA_EN, String(Date.now()));
 
       router.replace('/catalogo');
     } catch (error) {
@@ -94,6 +123,7 @@ export default function EscaneoQrScreen() {
   // Sacar esta función y el botón antes de entregar la app.
   const irADemostracion = useCallback(async () => {
     await AsyncStorage.setItem('cliente_uuid', 'demo-uuid-de-prueba');
+    await AsyncStorage.setItem(CLAVE_SESION_CREADA_EN, String(Date.now()));
     router.replace('/catalogo');
   }, []);
 
@@ -105,7 +135,7 @@ export default function EscaneoQrScreen() {
     router.push('/empleado');
   }, []);
 
-  if (mostrarBienvenida === null) {
+  if (comprobandoSesion || mostrarBienvenida === null) {
     return <View style={styles.centrado} />;
   }
 
